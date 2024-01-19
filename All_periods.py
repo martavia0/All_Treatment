@@ -24,13 +24,15 @@ print(trt.x)
 #%%
 pm1 = ['Org', 'SO4', 'NO3', 'NH4', 'Chl', 'BClf', 'BCsf'] #labels_pm1
 nr =  ['Org', 'SO4', 'NO3', 'NH4', 'Chl'] #labels_nrpm1
+factors = ['HOA', 'COA', 'Amine-OA', 'BBOA', 'LO-OOA', 'MO-OOA' ]
+ions = ['mz57mz55', 'mz43mz44', 'mz57mz44','mz60mz44', 'mz58mz44' ]
 c_df=['green', 'red', 'blue', 'orange', 'fuchsia', 'grey', 'saddlebrown'] #colors_nrpm1
 #%%
 path_treatment="C:/Users/maria/Documents/Marta Via/1. PhD/A. Data/All Series/Treatment"
 os.chdir(path_treatment)
 df=pd.read_csv('Chemistry_PM1.txt', sep='\t')
 #%% Fixing time
-dt=pd.to_datetime(df['time_utc'], dayfirst=True)
+dt=pd.to_datetime(df['acsm_utc_end_time'], dayfirst=True)
 df.index=dt
 df['datetime']=df.index
 #%% Overall time series
@@ -78,7 +80,7 @@ mp = dict(marker='o', linewidth=0.6,markeredgecolor='black', markerfacecolor='bl
 mdp = dict(color='k',  linewidth=0.6)
 wp = dict(linestyle='-', linewidth=0.6)
 
-col = 'NH4'
+col = 'NO3'
 fig, axs =plt.subplots()
 df.boxplot(by=['Month'], column=col, showfliers=False, showmeans=True, ax=axs, boxprops=bp, whiskerprops=wp,
            medianprops = mdp, meanprops=mp, fontsize=14)
@@ -88,7 +90,7 @@ plt.title('')
 
 #%% BP by years
 fig, axs =plt.subplots()
-col='NH4'
+col='Chl'
 df.boxplot(by=['Year'], column=col, showfliers=False, showmeans=True, ax=axs, boxprops=bp, whiskerprops=wp,
            medianprops = mdp, meanprops=mp, fontsize=12)
 plt.suptitle(col, fontsize=14)
@@ -101,16 +103,17 @@ df['Season'] = [month_to_season_dct.get(t_stamp.month) for t_stamp in df.index]
 season=df[nr].groupby([df['Season']]).mean()
 
 fig, axs=plt.subplots(figsize=(4,4))
-season.plot.bar(y=nr, color=c_df, ax=axs, stacked=True)
-axs.grid('x')
+season.plot.bar(y=nr, color=c_df, ax=axs, stacked=True, zorder=3)
+axs.grid(axis='y', zorder=0)
 axs.set_xlabel('Season', fontsize=12)
 axs.set_ylabel('Concentration ($\mu g·m^{-3}$)', fontsize=12)
+axs.legend(loc=(1.03, 0.63))
 #%% Season yearly NR compounds
 season_year=df.groupby(by=['Year', 'Season']).mean()
 
 fig, axs=plt.subplots(figsize=(6,4))
-season_year.plot.bar(y=nr, color=c_df, ax=axs, stacked=True, legend=False)
-axs.grid('x')
+season_year.plot.bar(y=nr, color=c_df, ax=axs, stacked=True, legend=False, zorder=3)
+axs.grid(axis='y', zorder=0)
 axs.set_xlabel('Season', fontsize=12)
 axs.set_ylabel('Concentration ($\mu g·m^{-3}$)', fontsize=12)
 #%% Pie NRPM1
@@ -202,33 +205,64 @@ x9, y9 = [35.5, 35.5], [0, 50]
 
 
 axs.plot(x1, y1, x2, y2, x3,y3, x4,y4, x5,y5, x6,y6,x7,y7, x8,y8, x9,y9, marker = '', color='grey', ls=':')
-axs.set_ylim(0,42)
+axs.set_ylim(0,35)
 axs.grid(axis ='y', color='lightgrey', zorder=0)
 axs.set_title('NR-PM$_1$', fontsize=14)
-#%% SUPERATIONS BY year
-sup4 =sup3.groupby('Season').mean()
-fig, axs =plt.subplots(figsize=(8,4))
-sup4.plot.pie(y='Perc',legend=False,labeldistance=1.1,  fontsize=12, pctdistance=.6, 
-              ax=axs, autopct='%1.0f%%', startangle=90,counterclock=False,
-              ylabel = '', colors = ['royalblue', 'gold', 'seagreen', 'sienna'])
-#%%
-nb_days_idx = nb_days_season.index
-sup_season_idx = sup_season_year.index
-sup_season_year.index = range(0,len(sup_season_year))
-nb_days_season.index = range(0,len(nb_days_season))
 
-for i in range(0,len(nb_days_idx[0])):
-    if nb_days_idx[i] not in sup_season_year.index:
-        print(nb_days_idx[i],i)
-        b=pd.Series(np.nan)
-        # b.index=nb_days_season.index[i]
-        sup_season_year.loc[i]=b
+#%% Superations stacked Season, Year
+limit_who_25_daily = 15
+dfi=df.copy(deep=True)
+dfi['date']=dfi['datetime'].dt.date
+dfi=dfi.groupby('date').mean()
+dfi['nr']=dfi['Org']+dfi['NO3']+dfi['NH4']+dfi['SO4']+dfi['Chl']
+dfi['Season'] = [month_to_season_dct.get(t_stamp.month) for t_stamp in dfi.index]
+dfi2 = dfi.copy(deep=True) 
+mask=dfi['nr'].iloc[:]>=limit_who_25_daily
+dfi=dfi.loc[mask]
+
+fig, axs =plt.subplots(figsize=(8,4))
+
+x1, y1 = [9.5,9.5], [0, 100]
+x2, y2 = [19.5,19.5], [0, 105]
+x3, y3 = [29.5,29.5], [0, 105]
+x4, y4 = [39.5,39.5], [0, 105]
+x5, y5 = [49.5,49.5], [0, 105]
+
+axs.set_ylim(0,100)
+axs.plot(x1, y1, x2, y2, x3,y3, x4,y4, x5,y5, marker = '', color='k', ls=':')
+
+from matplotlib.patches import Rectangle
+axs.add_patch(Rectangle((-0.5, 0), 10,100, facecolor='#DCF3FF', fill=True))
+axs.add_patch(Rectangle((9.5,0), 10,100,  facecolor='#FFFFDC', fill=True))
+axs.add_patch(Rectangle((19.5,0), 10,100,  facecolor='#E4FFDC', fill=True))
+axs.add_patch(Rectangle((29.5,0), 10,100,  facecolor='#F1E0CD', fill=True))
+
+dfi2=dfi.groupby([dfi['Season'], dfi['Year']]).mean()
+c = b.groupby(['Season', 'Year']).count()
+dfi3 = pd.merge(left=c, right=dfi2, left_index=True, right_index=True, how='outer')
+dfi_idx = dfi3.index
+dfi.reset_index(inplace=True)
+dfi4=pd.DataFrame({'OA':dfi3['Org']*100/dfi3[nr].sum(axis=1),'SO4':dfi3['SO4']*100/dfi3[nr].sum(axis=1),
+                    'NO3':100*dfi3['NO3']/dfi3[nr].sum(axis=1), 'NH4':100*dfi3['NH4']/dfi3[nr].sum(axis=1), 
+                    'Cl':100*dfi3['Chl']/dfi3[nr].sum(axis=1)})
+dfi4.plot(kind='bar', stacked=True, ax=axs, color=c_df)
+axs.set_xticks(range(0,40))
+axs.set_xticklabels([int(i) for i in range(2014, 2024)]*4)
+axs.set_xlabel('\nSeasons, Years', fontsize=12)
+axs.set_ylabel('Mean composition ($\mu g·m^{-3}$)', fontsize=12)
+axs.set_title('Days with daily WHO limits superation')
+axs.legend(loc=[1.01, 0.64])
+
+axs.text(x = 4, y=-22, s='DJF')
+axs.text(x = 14, y=-22, s='JJA')
+axs.text(x = 23, y=-22, s='MAM')
+axs.text(x = 34, y=-22, s='SON')
 
 #%%
 '''
 +++++++++++++++++++++++++++++++++++ OA SA +++++++++++++++++++++++++++++++++++++++++++++++++++++++
 '''
-#%% Import and time series""
+#%% OA SA:  Import and time series""
 path_oa = "C:/Users/maria/Documents/Marta Via/1. PhD/A. Data/All Series/Treatment"
 oa=pd.read_csv('SA_TS.txt', sep='\t')
 oa['datetime']=pd.to_datetime(oa['PMF Time (UTC)'], dayfirst=True)
@@ -241,9 +275,9 @@ fig, axs=plt.subplots(figsize=(20,4))
 oa.plot(y=factors, ax=axs, color=c_oa)
 axs.grid('x')
 axs.legend(loc='upper left')
-#%%Simple pie
-oa[factors].mean().plot.pie(colors=c_oa, autopct='%1.0f%%', months)
-#%% Replotting
+#%% OA SA: Simple pie
+oa[factors].mean().plot.pie(colors=c_oa, autopct='%1.0f%%')
+#%% OA SA:  Replotting
 oa['Year']=oa['datetime'].dt.year
 oa['Month']=oa['datetime'].dt.month
 oa['Hour']=oa['datetime'].dt.hour
@@ -271,7 +305,7 @@ axs[5,2].set_xlabel('Months')
 axs[5,3].set_xlabel('Hours')
 
 # axs.grid(axis='x')
-#%% OA reconstruction
+#%% OA SA:  OA reconstruction
 oa_sum=oa.sum(axis=1)[:-1]
 oa_rec=pd.DataFrame()
 oa_rec['OA']=org_avg[0]
@@ -291,7 +325,7 @@ axs.text(x=3,y=45, s='R$^2$ = '+r+'\n'+'y='+str(m)+' · x + '+str(n))
 axs.set_xlim([0,50])
 axs.set_ylim([0,50])
 
-#%% Diel yearly plots OA compounds
+#%% OA SA:  Diel yearly plots OA compounds
 oa['Hour']=oa['datetime'].dt.hour
 oa['Year']=oa['datetime'].dt.year
 year_diel=oa[factors].groupby([oa['Year'], oa['Hour']]).mean()
@@ -305,21 +339,21 @@ axs.set_xticklabels(['2014\n00:00','', '2015\n00:00','','2017\n00:00','', '2018\
 axs.set_xlabel('Year - Hour', fontsize=12)
 axs.set_ylabel('Concentration ($\mu g·m^{-3}$)', fontsize=12)
 axs.legend(loc=(1.03, 0.56))
-#%% Pie by years
+#%% OA SA:  Pie by years
 oa_mean = oa.mean()
 fig, axs=plt.subplots(figsize=(22,4))
 year_pie=oa[factors].groupby([oa['Year']]).mean()
 year_pie.T.plot.pie(subplots=True, legend=False,  pctdistance=.75, 
                     fontsize=9, ax=axs, colors=c_oa, autopct='%1.0f%%', startangle=90,
                     labels=None,counterclock=False)
-#%% Stacked yearly
+#%% OA SA:  Stacked yearly
 oa_mean = oa.mean()
 fig, axs=plt.subplots(figsize=(22,4))
 fig, axs= plt.subplots(figsize=(6,6))
 y[factors].plot(kind='bar', stacked=True, color=c_oa, ax=axs)
 axs.legend(loc=(1.03, 0.70))
 axs.set_ylabel('Absolute concentrations ($\mu g·m^{-3}$)')
-#%% Yearly monthly plots OA compounds
+#%% OA SA:  Yearly monthly plots OA compounds
 oa['Month']=oa['datetime'].dt.month
 year_monthly=oa[factors].groupby([oa['Year'], oa['Month']]).mean()
 fig, axs=plt.subplots(figsize=(10,4))
@@ -327,9 +361,8 @@ year_monthly.plot.bar(y=factors, color=c_oa, ax=axs, stacked=True)
 axs.grid('x')
 axs.set_xlabel('(Year, Month)', fontsize=12)
 axs.set_ylabel('Concentration ($\mu g·m^{-3}$)', fontsize=12)
-#%%
 
-#%% Monthly plots OA compounds
+#%% OA SA:  Monthly plots OA compounds
 monthly=oa[factors].groupby([oa['Month']]).mean()
 fig, axs=plt.subplots(figsize=(5,4))
 monthly.plot.bar(y=factors, color=c_oa, ax=axs, stacked=True, zorder=2)
@@ -338,7 +371,7 @@ axs.set_xlabel('Month', fontsize=12)
 axs.set_ylabel('Absolute concentration ($\mu g·m^{-3}$)', fontsize=12)
 axs.legend(loc=(1.03, 0.55))
 
-#%% Season plots OA compounds
+#%% OA SA:  Season plots OA compounds
 month_to_season_dct = {1: 'DJF', 2: 'DJF',3: 'MAM', 4: 'MAM', 5: 'MAM',6: 'JJA', 7: 'JJA', 8: 'JJA',9: 'SON', 10: 'SON', 11: 'SON',12: 'DJF'}
 oa['Season'] = [month_to_season_dct.get(t_stamp.month) for t_stamp in oa.index]
 season=oa[factors].groupby([oa['Season']]).mean()
@@ -350,7 +383,7 @@ axs.set_xlabel('Season', fontsize=12)
 axs.set_ylabel('Concentration ($\mu g·m^{-3}$)', fontsize=12)
 axs.legend(loc=(1.03, 0.55))
 
-#%% Yearly season
+#%% OA SA:  Yearly season
 rdm_dates = pd.DataFrame()
 rdm_dates['datetime']=pd.date_range(start='01/01/2014', end='31/12/2023')
 rdm_dates['Month']=rdm_dates['datetime'].dt.month
@@ -465,30 +498,238 @@ axs.set_ylim(0,4)
 axs.plot(x0, y0, x1, y1, x2, y2, x3,y3, x4,y4, x5,y5, x6,y6,x7,y7, x8,y8, x9,y9, x10,y10, marker = '', color='grey', ls=':')
 axs.plot(x11, y11, x12, y12, x13,y13, x14,y14, x15,y15, x16,y16, x17,y17, x18,y18, x19,y19, x20,y20, marker = '', color='lightgrey', ls=':')
 
-#%%%Inspection of the PMF files!
+
+#%% Yearly monthly
+rdm_dates = pd.DataFrame()
+rdm_dates['datetime']=pd.date_range(start='01/01/2014', end='31/12/2023')
+rdm_dates['Month']=rdm_dates['datetime'].dt.month
+rdm_dates['Year']=rdm_dates['datetime'].dt.year
+ym_all = rdm_dates.groupby( [rdm_dates['Month'], rdm_dates['Year']]).count()
+
+year_month=oa[factors].groupby([ oa['Month'],oa['Year']]).mean()
+ym = pd.merge(left=ym_all, right=year_month, left_index=True, right_index=True, how='outer')
+ym =ym.replace(0, np.nan)
+# ym =ym.replace(np.na)
+
+
+fig, axs=plt.subplots(figsize=(12,5))
+ym.plot(kind='bar', width=0.9,  y=factors, color=c_oa, ax=axs, zorder=3, stacked=True)#, marker='o', markersize=3, lw=0)
+axs.grid(axis='y', zorder=0)
+axs.set_xlabel('\nMonth, year', fontsize=12)
+axs.set_ylabel('Yearly Concentration ($\mu g·m^{-3}$)', fontsize=12)
+axs.legend(loc=(1.03, 0.55))
+
+axs.set_xticks(range(0,120, 2))
+axs.set_xticklabels(['2014',  '',  '2018', '', '2022']*12, rotation =90)
+
+x0, y0 = [0.0, 0.0], [0, 30]
+x1, y1 = [10.5, 10.5], [0, 30]
+x2, y2 = [20.5, 20.5], [0, 30]
+x3, y3 = [30.5, 30.5], [0, 30]
+x4, y4 = [40.5, 40.5], [0, 30]
+x5, y5 = [50.5, 50.5], [0, 30]
+x6, y6 = [60.5, 60.5], [0, 30]
+x7, y7 = [70.5, 70.5], [0, 30]
+x8, y8 = [80.5, 80.5], [0, 30]
+x9, y9 = [90.5, 90.5], [0, 30]
+x10, y10 = [100.5, 100.5], [0, 30]
+x11, y11 = [110.5, 110.5], [0, 30]
+x12, y12 = [120.5, 120.5], [0, 30]
+
+
+axs.set_ylim(0,10)
+axs.plot(x0, y0, x1, y1, x2, y2, x3,y3, x4,y4, x5,y5, x6,y6,x7,y7, x8,y8, x9,y9, x10,y10, marker = '', color='k', ls=':')
+axs.plot(x11, y11, x12, y12, marker = '', color='k', ls=':')#, x13,y13, x14,y14, x15,y15, x16,y16, x17,y17, x18,y18, x19,y19, x20,y20, marker = '', color='grey', ls=':')
+axs.add_patch(Rectangle((0, 0), 10.5, 11, facecolor='#D0F2FF', fill=True))
+axs.add_patch(Rectangle((10.5, 0), 10, 11, facecolor='#B7EBFE', fill=True))
+axs.add_patch(Rectangle((20.5, 0), 10, 11, facecolor='#DAFFDC', fill=True))
+axs.add_patch(Rectangle((30.5, 0), 10, 11, facecolor='#C7FFCA', fill=True))
+axs.add_patch(Rectangle((40.5, 0), 10, 11, facecolor='#BAFFBE', fill=True))
+axs.add_patch(Rectangle((50.5, 0), 10, 11, facecolor='#FEFFD5', fill=True))
+axs.add_patch(Rectangle((60.5, 0), 10, 11, facecolor='#FEFFC3', fill=True))
+axs.add_patch(Rectangle((70.5, 0), 10, 11, facecolor='#FEFFB3', fill=True))
+axs.add_patch(Rectangle((80.5, 0), 10, 11, facecolor='#FEF3D3', fill=True))
+axs.add_patch(Rectangle((90.5, 0), 10, 11, facecolor='#FFF0C5', fill=True))
+axs.add_patch(Rectangle((100.5, 0), 10, 11, facecolor='#FEECB6', fill=True))
+axs.add_patch(Rectangle((110.5, 0), 10, 11, facecolor='#E5F8FF', fill=True))
+
+axs.text(x=2.5, y=-1.65, s='JAN')
+axs.text(x=12.5, y=-1.65, s='FEB')
+axs.text(x=22.5, y=-1.65, s='MAR')
+axs.text(x=32.5, y=-1.65, s='APR')
+axs.text(x=42.5, y=-1.65, s='MAY')
+axs.text(x=52.5, y=-1.65, s='JUN')
+axs.text(x=62.5, y=-1.65, s='JUL')
+axs.text(x=72.5, y=-1.65, s='AUG')
+axs.text(x=82.5, y=-1.65, s='SEP')
+axs.text(x=92.5, y=-1.65, s='OCT')
+axs.text(x=102.5, y=-1.65, s='NOV')
+axs.text(x=112.5, y=-1.65, s='DEC')
+#%% OA SA:  SUPERATIONS COMPOSITION
+
+superations_days= dfi.copy(deep=True)
+del superations_days['nr']
+superations_days['nr']=superations_days[nr].sum()
+
+oa_d=pd.DataFrame()
+oa['date']=oa['datetime'].dt.date
+oa_d_mean =oa.groupby('date').mean()
+
+oa_d['datetime']=pd.date_range("01/01/2014", '31/12/2023')
+oa_d.index=oa_d['datetime']
+oa_d['date']=oa_d['datetime'].dt.date
+month_to_season_dct = {1: 'DJF', 2: 'DJF',3: 'MAM', 4: 'MAM', 5: 'MAM',6: 'JJA', 7: 'JJA', 8: 'JJA',9: 'SON', 10: 'SON', 11: 'SON',12: 'DJF'}
+oa_d['Season'] = [month_to_season_dct.get(t_stamp.month) for t_stamp in oa_d['date']]
+oa_ds=oa_d.groupby('Season').count()
+
+oa_daily = pd.merge(left = oa_d, right= oa_d_mean, left_index=True, right_index=True, how='outer')
+oa_daily['datetime']=oa_daily.index
+oa_daily['date']=oa_daily['datetime'].dt.date
+
+mask_sup = oa_daily['date'].isin(superations_days['date'])
+oa_sup=oa_daily.loc[mask_sup]
+
+month_to_season_dct = {1: 'DJF', 2: 'DJF',3: 'MAM', 4: 'MAM', 5: 'MAM',6: 'JJA', 7: 'JJA', 8: 'JJA',9: 'SON', 10: 'SON', 11: 'SON',12: 'DJF'}
+oa_sup['Season'] = [month_to_season_dct.get(t_stamp.month) for t_stamp in oa_sup['date']]
+
+oa_sup_my = oa_sup.groupby(['Season']).mean()
+oa_sup_my_count=oa_sup.groupby(['Season']).count()
+oa_sup_my['oa'] = oa_sup_my[factors].sum(axis=1)
+oa_sup_my2 = pd.DataFrame(data = {'HOA':oa_sup_my['HOA']/oa_sup_my['oa'], 'COA':oa_sup_my['COA']/oa_sup_my['oa'], 
+                                  'Amine-OA':oa_sup_my['Amine-OA']/oa_sup_my['oa'], 'BBOA':oa_sup_my['BBOA']/oa_sup_my['oa'],
+                                  'LO-OOA':oa_sup_my['LO-OOA']/oa_sup_my['oa'],'MO-OOA':oa_sup_my['MO-OOA']/oa_sup_my['oa']})
+oa_sup_my2 = 100.0*oa_sup_my2
+fig, axs=plt.subplots(figsize=(4,4))
+oa_sup_my2.plot(kind='bar', stacked=True, ax=axs, color=c_oa, zorder=3)
+axs.legend(loc=(1.01, 0.55))
+axs.set_ylabel('Average composition of OA (%)', fontsize=12)
+axs.grid(axis='y', zorder=0)
+axs.set_xlabel('Season', fontsize=12)
+axs.set_ylim(0,108)
+for i in range(0,4):
+    axs.text(x=i-0.18, y=102, s=str((oa_sup_my_count['HOA'].iloc[i]*100/oa_ds['date'].iloc[i]).round(1))+'%')
+axs.set_title('Superations of WHO daily limit\n', fontsize=13)
+
+#%%
+'''
+++++++++++++++++++++++++  IONSSSSS  ++++++++++++++++++++++++++
+
+'''
+#%%% IONS: Inspection of the PMF files!
 s=pd.read_csv('Specs.txt', sep='\t', header=None)
 e=pd.read_csv('Errors.txt', sep='\t', header=None)
-t=pd.read_csv('acsm_utc_time.txt', sep='\t')
+t=pd.read_csv('acsm_utc_time_mats.txt', sep='\t')
 mz=pd.read_csv('amus.txt', sep='\t')
 s.columns=mz['mz']
 e.columns=mz['mz']
-s.index=pd.to_datetime(t['acsm_utc_end_time'], dayfirst=True)
-e.index=pd.to_datetime(t['acsm_utc_end_time'], dayfirst=True)
-#%%
+s.index=pd.to_datetime(t['Time (UTC)'], dayfirst=True)
+e.index=pd.to_datetime(t['Time (UTC)'], dayfirst=True)
+#Filtering specs
+for i in s.columns:
+    s[i][s[i]> 1] = np.nan
+    e[i][e[i]> 1] = np.nan
+    s[i][s[i]< -0.05] = np.nan
+#%% IONS: Filtering ratios
 ratios=pd.DataFrame()
+ratios['datetime']=ratios.index
 ratios['mz57mz55']=s[57]/s[55]
 ratios['mz43mz44']=s[43]/s[44]
 ratios['mz57mz44']=s[57]/s[44]
 ratios['mz60mz44']=s[60]/s[44]
 ratios['mz58mz44']=s[58]/s[44]
-#%%Filtering
-for i in s.columns:
-    s[i][s[i]> 1] = np.nan
-    e[i][e[i]> 1] = np.nan
-    s[i][s[i]< -0.05] = np.nan
+for i in ratios.columns:
+    ratios[i][ratios[i]> 50] = np.nan
+    ratios[i][ratios[i]< -50] = np.nan
+#%% IONS: TS ratios
+c_ions = ['darkviolet', 'forestgreen', 'gray', 'chocolate','cadetblue']
+ratios['datetime'] =ratios.index
+fig, axs = plt.subplots(figsize=(16,8), nrows = len(ions), sharex ='col', ncols =4, width_ratios=[3, 1,1, 1])
+ratios['Year']=ratios['datetime'].dt.year
+ratios['Month']=ratios['datetime'].dt.month
+ratios['Hour']=ratios['datetime'].dt.hour
+ratios_y, ratios_m, ratios_h=ratios.groupby('Year').mean(), ratios.groupby('Month').mean(), ratios.groupby('Hour').mean()
+ratios_ye, ratios_me, ratios_he=ratios.groupby('Year').std(), ratios.groupby('Month').std(), ratios.groupby('Hour').std()
+
+for i in range(0,len(ions)):
+    ratios[ions[i]].plot( ax=axs[i,0], color=c_ions[i], legend=False)
+    ratios_y[ions[i]].plot( ax=axs[i,1], color=c_ions[i], legend=False, marker='o', ms=4)
+    # axs[i,1].errorbar(x=ratios_y.index, y=ratios_y[ions[i]], yerr=ratios_ye[ions[i]],color=c_ions[i])
+    ratios_m[ions[i]].plot( ax=axs[i,2], color=c_ions[i], legend=False, marker='o', ms=4)
+    # axs[i,2].errorbar(x=ratios_m.index, y=ratios_m[ions[i]], yerr=ratios_me[ions[i]],color=c_ions[i])
+    ratios_h[ions[i]].plot( ax=axs[i,3], color=c_ions[i], legend=False, marker='o', ms=4)
+    # axs[i,3].errorbar(x=ratios_h.index, y=ratios_h[ions[i]], yerr=ratios_he[ions[i]],color=c_ions[i])
+
+    axs[i,0].set_ylabel(ratios.columns[i]+'\n(adim.)')
+    axs[i,1].grid(axis='x'), axs[i,2].grid(axis='x'), axs[i,3].grid(axis='x')
+
+
+axs[0,0].set_ylim(0,5)
+axs[1,0].set_ylim(0,10)
+axs[2,0].set_ylim(0,6)
+axs[3,0].set_ylim(0,3)
+axs[4,0].set_ylim(0,5)
+axs[0,0].grid(axis='x'), axs[1,0].grid(axis='x'), axs[2,0].grid(axis='x'), axs[3,0].grid(axis='x'),axs[4,0].grid(axis='x')
+fig.suptitle('Ions ratios')
+#%% IONS:  SUPERATIONS COMPOSITION
+
+superations_days= dfi.copy(deep=True)
+del superations_days['nr']
+superations_days['nr']=superations_days[nr].sum()
+
+ratiosions=pd.DataFrame()
+ratiosions=ratios.copy(deep=True)
+ratiosions['date']=pd.to_datetime(ratios['datetime']).dt.date
+ratiosions =ratiosions.groupby('date').mean()
+
+r_d=pd.DataFrame()
+r_d['datetime']=pd.date_range("01/01/2014", '31/12/2023')
+r_d.index=r_d['datetime']
+r_d['date']=r_d['datetime'].dt.date
+month_to_season_dct = {1: 'DJF', 2: 'DJF',3: 'MAM', 4: 'MAM', 5: 'MAM',6: 'JJA', 7: 'JJA', 8: 'JJA',9: 'SON', 10: 'SON', 11: 'SON',12: 'DJF'}
+r_d['Season'] = [month_to_season_dct.get(t_stamp.month) for t_stamp in r_d['date']]
+
+r_daily = pd.merge(left = r_d, right= ratiosions, left_index=True, right_index=True, how='outer')
+r_daily['datetime']=r_d.index
+r_daily['date']=oa_daily['datetime'].dt.date
+
+mask_sup = r_daily['date'].isin(superations_days['date'])
+r_sup=r_daily.loc[mask_sup]
+
+month_to_season_dct = {1: 'DJF', 2: 'DJF',3: 'MAM', 4: 'MAM', 5: 'MAM',6: 'JJA', 7: 'JJA', 8: 'JJA',9: 'SON', 10: 'SON', 11: 'SON',12: 'DJF'}
+r_sup['Season'] = [month_to_season_dct.get(t_stamp.month) for t_stamp in r_sup['date']]
+
+r_sup_my = r_sup.groupby(['Season']).mean()
+r_sup_my_count=r_sup.groupby(['Season']).count()
+
+fig, axs=plt.subplots(figsize=(4,4))
+r_sup_my[ions].plot(marker='o', ax=axs, color=c_ions, zorder=3 )
+axs.legend(loc=(1.01, 0.55))
+axs.set_ylabel('OA Ion ratios (adim.)', fontsize=12)
+axs.grid(axis='y', zorder=0)
+axs.set_xlabel('Season', fontsize=12)
+
+axs.set_title('Superations of WHO daily limit\n', fontsize=13)
+
+#%% Ratios definition
+ratios=pd.DataFrame()
+ratios['dt']=ions_f['dt']
+ratios['SOA_freshness']=ions['f43']/ions['f44']
+ratios['POA_SOA']=(ions['f55']+ions['f57']+ions['f60']+ions['f73'])/(ions['f43']+ions['f44'])
+ratios['Traffic']=(ions['f55']+ions['f57'])/(ions['f43']+ions['f44']+ions['f60']+ions['f73']+ions['f55']+ions['f57'])
+ratios['BB']=(ions['f60']+ions['f73'])/(ions['f43']+ions['f44']+ions['f60']+ions['f73']+ions['f55']+ions['f57'])
+ratios['OC']=0.079+4.31*ions['f44']
+ratios['OAOC']=1.29*ratios['OC']+1.17
+ratios['OAOC_nop']=oa/ratios['OC']
+ratios['OA']=oa
+mask_ratios = (ratios['SOA_freshness']>=0.0) & (ratios['SOA_freshness']<=2.0) & (ratios['POA_SOA']>=0.0) #& (ratios['OAOC_nop']<=20.0)
+ratios_f=ratios[mask_ratios]
+ratios_f[ratios_f.columns[1:8]].plot(figsize=(12,12), legend=True, subplots=True, lw=2, color='grey')
+ratios_f.to_csv('ratios.txt', sep='\t')
+
+
 
 #%%
-#********************************* BOUNDARY LAYER ******************************************
+'''********************************* BOUNDARY LAYER ******************************************'''
 #%%
 path_bl="D:\Data co-located instruments\Boundary Layer"
 os.chdir(path_bl)
@@ -589,7 +830,9 @@ axs.grid('x')
 axs.set_xlabel('Hour', fontsize=12)
 axs.set_ylabel('Concentration ($\mu g·m^{-3}$)', fontsize=12)
 #
-#%%+++++++++++++++++++++++++++++++++++ OA SA BL +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#%%
+'''+++++++++++++++++++++++++++++++++++ OA SA BL +++++++++++++++++++++++++++++++++++++++++++++++++++++++'''
+
 #  to OA time series timestamps
 bl_avg_oa=trt.averaging(bl_df['BL'], oa['datetime'], bl_df['dt'])
 bl_avg_oa.index=oa['datetime'].iloc[1:]
@@ -775,10 +1018,10 @@ nrpm1=pm1_2019
 path_ions="C:/Users/maria/Documents/Marta Via/1. PhD/A. Data/All Series/PMF_Matrices"
 os.chdir(path_treatment)
 specs=pd.read_csv('Specs.txt', sep='\t', header=None)
-specs_time=pd.read_csv('acsm_utc_time.txt', sep='\t')
+specs_time=pd.read_csv('acsm_utc_time_mats.txt', sep='\t')
 specs_amus=pd.read_csv('amus.txt', sep='\t')
 specs.columns=specs_amus['mz']
-dt_specs=pd.to_datetime(specs_time['acsm_utc_end_time'], dayfirst=True)
+dt_specs=pd.to_datetime(specs_time['Time (UTC)'], dayfirst=True)
 specs['dt_specs']=dt_specs
 specs.index=dt_specs
 #Ions definitions
@@ -794,36 +1037,24 @@ ions['dt']=specs.index
 ions_labels=['f44', 'f43', 'f60', 'f55', 'f57', 'f73']
 #%%filtering ions 
 ions.plot()
-mask = (ions['f44']>=0.0) & (ions['f44']<=1.0) & (ions['f43']>=0.0) & (ions['f43']<=1.0) & (ions['f73']>=0.0) & (ions['f60']>=0.0) & (ions['f55']>=0.0) & (ions['f57']>=0.0)
+mask = [(ions['f44']>=0.0) & (ions['f44']<=1.0) & (ions['f43']>=0.0) & (ions['f43']<=1.0) & (ions['f73']>=0.0) & (ions['f60']>=0.0) & (ions['f55']>=0.0) & (ions['f57']>=0.0)]
 ions_f = ions.loc[mask]
+ions_f=ions.copy(deep=True)
 ions_f.plot()
 ions_f['Year']=ions['dt'].dt.year
 ions_f['Month']=ions['dt'].dt.month
 ions_f.to_csv('Ions.txt', sep='\t')
 ions_ym=pd.DataFrame(ions_f[ions_labels].groupby([ions_f['Year'], ions_f['Month'],]).mean())
-#%%Rearrange ions yearly month
-li, li_std=[],[]
-yearmonth=pd.DataFrame(pd.date_range(start = '01/01/2014', end = "07/01/2023").to_period('M').unique(), columns=['ym'])
-for i in range(0,len(yearmonth)):
-    year = yearmonth['ym'].iloc[i].year
-    month = yearmonth['ym'].iloc[i].month
-    print(year, month)
-    mask = (ions_f['Year']==year) & ((ions_f['Month']==month))
-    prova = ions_f.loc[mask]
-    li.append(prova.mean())
-    li_std.append(prova.std())
-ym_mean=pd.DataFrame(li)
-ym_std=pd.DataFrame(li_std)
 #%%  Plotting year/months ions
-ym_mean.index, ym_std.index = yearmonth['ym'], yearmonth['ym']
 os.chdir(path_treatment)
 ion=['f44', 'f43', 'f55', 'f57', 'f60', 'f73']  
 fig, axs=plt.subplots(figsize=(10,10))
-pl=ym_mean[ion].plot(ax=axs, x_compat=True, color='grey', subplots=True, sharex=True, lw=2, marker='o', grid=True)   
+pl=ions_ym[ion].plot(ax=axs, x_compat=True, color='grey', subplots=True, sharex=True, lw=2, marker='o', grid=True)   
+axs.set_xticks(range(0,))
 axs.set_xlabel('Monthly means', fontsize=11)
 plt.savefig('Ions_monthyear.png', bbox_inches='tight')
 #%% Ions Year intercomp
-cols=ym_mean.columns[0:6]
+ym_mean=ions_ym#.columns[0:6]
 ym_mean['6073']=ym_mean['f73'] + ym_mean['f60']
 ym_mean['5557']=ym_mean['f55'] + ym_mean['f57']
 ym_mean['4344']=ym_mean['f43'] + ym_mean['f44']
@@ -836,7 +1067,6 @@ liy=[]
 ym_mean=ym_mean.reset_index(drop=True)
 years=['2014', '2015','2016', '2017', '2018', '2019', '2020','2021', '2022', '2023']
 for i in range(0,len(years)):
-    print(i,i*12+1,(i+1)*12+1)
     liy.append(ym_mean[toplot].iloc[i*12+1:(i+1)*12])
     df_temp=pd.DataFrame(ym_mean[toplot].iloc[i*12+1:(i+1)*12+1])
     yearly_ions=pd.concat([yearly_ions.reset_index(drop=True), df_temp.reset_index(drop=True)], axis=1, ignore_index=True)
@@ -848,9 +1078,11 @@ greys=['gainsboro','lightgrey','lightgrey','silver', 'darkgrey',  '#8F8E8E', 'gr
 rainbow=['mediumpurple', 'hotpink', 'r', 'orange', 'gold', 'yellowgreen', 'green', 'skyblue', 'dodgerblue', 'slateblue']
 markers=['o', 'v','X','s','^', 'p', '>', '*', '<', 'P']
 fig, axs=plt.subplots(figsize=(8,4))
+
 # pl=yearly_ions[years[9]].plot.line()
-for i in range(0, len(yearly_ions.columns)):
-    pl=yearly_ions[years[i]].plot.line( fontsize=13,ax=axs, color=greys[i], grid=True, markersize=8, marker=markers[i], legend=True, lw=2)
+for k in range(0, len(yearly_ions.columns)):
+    print(greys[k])
+    pl=yearly_ions[years[k]].plot.line(fontsize=13,ax=axs,  grid=True, markersize=8, marker=markers[i], legend=True, lw=2)
 axs.set_xticks(range(len(months)))
 axs.set_xticklabels(months, fontsize=14)
 axs.legend(bbox_to_anchor=(1.005, 1.005))
@@ -937,20 +1169,99 @@ yearly_mean=yearly.mean(axis=1)
 fig2, axs2=plt.subplots(figsize=(8,4))
 yearly_mean.plot(color='grey', title=titles_cols[j], ax=axs2)
 plt.savefig(toplot+'_average.png', bbox_inches='tight')
+#%%
+
+''' BACKTRAJECTORIES '''
+
+
+#%% IMproting and daily
+bt = pd.read_csv('Retrotrajectories.txt', sep='\t')
+bt['datetime']=pd.to_datetime(bt['Date'], dayfirst=True)
+bt.index = bt['datetime']
+#%% Grouping by basic backtrajectories only
+bt_basic =[]
+for i in range(0,len(bt)):
+    # print(bt['Retro'].iloc[i][:3])
+    if bt['Retro'].iloc[i][:3] == 'REG':
+        bt_basic.append('REG')
+    elif bt['Retro'].iloc[i][:3] == 'MED':
+        bt_basic.append('MED')
+    elif bt['Retro'].iloc[i][:3] == 'ANT':
+        bt_basic.append('ANT')
+    elif bt['Retro'].iloc[i][:3] == 'NAF':
+        bt_basic.append('NAF')
+    elif bt['Retro'].iloc[i][:3] == 'ANW':
+        bt_basic.append('ANW')
+    elif bt['Retro'].iloc[i][:3] == 'REG':
+        bt_basic.append('REG')
+    elif bt['Retro'].iloc[i][:3] == 'MED':
+        bt_basic.append('MED')
+    elif bt['Retro'].iloc[i][:3] == 'AMT':
+        bt_basic.append('ANT')
+    elif (bt['Retro'].iloc[i][:3] == 'EU') or (bt['Retro'].iloc[i][:3] == 'EU ') or (bt['Retro'].iloc[i][:3] == 'EU-') or (bt['Retro'].iloc[i][:3] == 'EU?'):
+        bt_basic.append('EU')
+    elif (bt['Retro'].iloc[i][:3] == 'AW') or (bt['Retro'].iloc[i][:3] == 'AW ') or (bt['Retro'].iloc[i][:3] == 'AW-') or (bt['Retro'].iloc[i][:3] == 'AW/'):
+        bt_basic.append('AW')
+    elif (bt['Retro'].iloc[i][:3] == 'AN') or (bt['Retro'].iloc[i][:3] == 'AN-') or (bt['Retro'].iloc[i][:3] == 'AN ') or (bt['Retro'].iloc[i][:3] == 'AN/') or (bt['Retro'].iloc[i][:3] == 'AN?') or (bt['Retro'].iloc[i][:3] == 'WAN'):
+        bt_basic.append('AN')
+    else:
+        bt_basic.append(bt['Retro'].iloc[i][:3])
+
+bt['Basic_retro']=bt_basic
+#%% Daily nr and plotting
+df['date']=df['datetime'].dt.date
+dfd = df.groupby(df['date']).mean()
+
+nrd = pd.merge(left = dfd, right= bt, left_index=True, right_index=True, how='outer')
+nrbt= nrd.groupby('Basic_retro').mean()
+nrbt_c= nrd.groupby('Basic_retro').count()
+nrbt_c_p = pd.DataFrame(data = 100*nrbt_c['Org'] / nrbt_c['Org'].sum())
+
+fig, axs=plt.subplots(figsize=(10,4))
+nrbt.plot(kind='bar', stacked=True, ax=axs, color=c_df)
+axs2=axs.twinx()
+nrbt_c_p.plot(marker ='o', lw=0, ax=axs2, markersize=10, color='k', legend=False)
+axs.set_ylabel('Daily concentrations $(\mu g·m^{-3})$', fontsize=12)
+axs2.set_ylabel('Frequency (%)', fontsize=12)
+x1, y1 = [-5,20], [15,15]
+axs.plot(x1, y1, ls='--', color='grey')
+
+axs.text(x=-0.35, y=15.5, s='WHO PM$_{2.5}$ daily limit', c='dimgrey', fontsize=12)
+axs.text(x=-0.35, y=17.5, s='Mean', c='k', fontsize=12)
+axs.set_xlabel('Backtrajectories scenarios', fontsize=12)
+axs.set_ylim(0, 17)
+axs.legend(loc=(1.08, 0.6))
 
 
 
+#%%
+limit_who_25_daily=15.5
+df['date']=df['datetime'].dt.date
+dfd = df.groupby(df['date']).mean()
 
+nrd = pd.merge(left = dfd, right= bt, left_index=True, right_index=True, how='outer')
+nrd['nr']=nrd['Org']+nrd['SO4']+nrd['NO3']+nrd['NH4']+nrd['Chl']
 
+mask =nrd['nr']>=limit_who_25_daily
+nrd_high=nrd.loc[mask]
+nrd_high_c=nrd_high.groupby('Basic_retro').count()
+nrd_high_m=nrd_high.groupby('Basic_retro').mean()
 
+fig, axs=plt.subplots(figsize=(10,4))
+nrd_high_m[nr].plot(kind='bar', stacked=True, ax=axs, color=c_df)
+axs2=axs.twinx()
+nrd_high_c['Org'].plot(marker ='o', lw=0, ax=axs2, markersize=10, color='k', legend=False)
+axs.set_ylabel('Daily concentrations $(\mu g·m^{-3})$', fontsize=12)
+axs2.set_ylabel('Frequency (%)', fontsize=12)
+x1, y1 = [-5,20], [15,15]
+axs.plot(x1, y1, ls='--', color='grey')
 
+axs.text(x=-0.35, y=15.5, s='WHO PM$_{2.5}$ daily limit', c='grey', fontsize=12)
+axs.text(x=-0.35, y=26, s='Days obove WHO PM$_{2.5}$ daily limit', c='k', fontsize=12)
 
-
-
-
-
-
-    
+axs.set_xlabel('Backtrajectories scenarios', fontsize=12)
+# axs.set_ylim(0, 17)
+axs.legend(loc=(1.08, 0.6))    
     
     
     
